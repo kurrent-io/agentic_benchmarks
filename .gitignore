@@ -1,0 +1,56 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Benchmark outputs
+.benchmark/
+*.json
+*.html
+
+# OS
+.DS_Store
+Thumbs.db
+NUL
+
+# Claude
+.claude/
+
+# Logs
+*.log
+benchmark.key
+
+# Local scripts
+start_ollama_d_drive.bat
+CLAUDE.md
+article.md

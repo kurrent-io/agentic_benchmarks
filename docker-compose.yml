@@ -1,0 +1,91 @@
+services:
+  # ============================================
+  # DATABASES
+  # ============================================
+
+  postgres:
+    image: timescale/timescaledb:latest-pg16
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: bench
+      POSTGRES_DB: benchmark
+    volumes:
+      - D:/docker-data/agentic-benchmark/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bench -d benchmark"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 512m
+    memswap_limit: 512m
+
+  kurrentdb:
+    image: docker.kurrent.io/kurrent-latest/kurrentdb:latest
+    ports:
+      - "2113:2113"
+    environment:
+      KURRENTDB_CLUSTER_SIZE: 1
+      KURRENTDB_RUN_PROJECTIONS: All
+      KURRENTDB_START_STANDARD_PROJECTIONS: "true"
+      KURRENTDB_INSECURE: "true"
+      KURRENTDB_ENABLE_ATOM_PUB_OVER_HTTP: "true"
+      # Limit memory usage
+      KURRENTDB_MEM_DB: "false"
+      KURRENTDB_CHUNK_SIZE: 1048576
+    volumes:
+      - D:/docker-data/agentic-benchmark/kurrentdb:/var/lib/kurrentdb
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2113/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    mem_limit: 1g
+    memswap_limit: 1g
+
+  # ============================================
+  # MCP SERVERS (Model Context Protocol)
+  # ============================================
+
+  mcp-postgres:
+    build:
+      context: ./docker/mcp-postgres
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      MCP_PORT: 3000
+      DATABASE_URL: postgresql://bench:bench@postgres:5432/benchmark
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    memswap_limit: 256m
+
+  mcp-kurrentdb:
+    build:
+      context: ./docker/mcp-kurrentdb
+      dockerfile: Dockerfile
+    ports:
+      - "3003:3003"
+    environment:
+      MCP_PORT: 3003
+      KURRENTDB_CONNECTION_STRING: esdb://admin:changeit@kurrentdb:2113?tls=false
+    depends_on:
+      kurrentdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3003/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    mem_limit: 256m
+    memswap_limit: 256m
+
+# Data stored on D:/docker-data/agentic-benchmark/

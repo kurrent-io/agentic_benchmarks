@@ -1,0 +1,12 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "agentic-retrieval-benchmark"
+version = "0.1.0"
+description = "Bnchmark for evaluating data quality across current state, cdc and event sourced data models."
+requires-python = ">=3.11"
+
+[project.scripts]
+arb = "framework.cli:cli"
