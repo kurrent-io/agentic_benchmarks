@@ -37,6 +37,20 @@ This approach lets us:
 | **Aviation** | BTS | Flights, Delays, Diversions | "Why was the flight cancelled?" |
 | **Ratings** | MovieLens | Ratings, Tags, Watchlists | "Why did the user change their rating?" |
 
+### Synthetic Conversion: Both Directions
+
+A natural objection is: "Of course events win — you designed the data with events in mind." But the benchmark converts in both directions.
+
+Some domains are **naturally CRUD-shaped**. Olist stores orders as rows with a status field. Berka stores account balances as current values. These systems were never designed to emit events. We synthetically *enriched* them — imagining what the event stream would have looked like if intent had been captured from the start. An order with `status = 'cancelled'` becomes `OrderCancelledByCustomer(reason="found_cheaper")`.
+
+Other domains are **naturally event-shaped**. GitHub's API is inherently event-based — a PR has a timeline of actions: opened, review requested, changes requested, approved, merged. We synthetically *flattened* this into CRUD tables, deliberately destroying the action semantics. The full timeline collapses into a single row: `state = 'closed, not merged'`.
+
+The result is the same regardless of direction:
+- **Flattening events into CRUD** destroys information — the agent can no longer explain why a PR was closed
+- **Enriching CRUD into events** adds information — the agent can now explain why an order was cancelled
+
+This symmetry confirms that events are the maximal representation. Every CRUD table is a lossy projection of an event stream. The projection is one-way: you can always go from events to state, but you cannot go from state back to events.
+
 ## Three-Tier Benchmark
 
 Questions are organized by difficulty:
@@ -164,7 +178,6 @@ agentic_benchmark/
 ├── docker-compose.yml    # Database containers + MCP servers
 ├── framework/
 │   └── agents/           # Claude client, MCP retrieval, Judge
-├── adapters/             # Dataset adapters
 └── datasets/             # Download scripts
 ```
 
