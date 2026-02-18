@@ -487,6 +487,173 @@ TEMPLATES = [
             {"question": "How much total delay accumulated for flight {id} across all causes?", "answer_fn": "total_delay"},
         ],
     },
+    # -------------------------------------------------------------------------
+    # TIER 5 — ADVERSARIAL QUESTIONS (False Premise Detection)
+    # These questions contain a false assumption. The correct answer requires
+    # the agent to detect and correct the false premise rather than blindly
+    # answering.
+    # -------------------------------------------------------------------------
+    {
+        "domain": "olist",
+        "id": "olist_adversarial_cancel",
+        "name": "False Premise: Order Cancellation",
+        "entity": "order",
+        "field": "status",
+        "tier5_only": True,
+        "current_pool": ["cancelled"],
+        "previous_pool": ["processing", "confirmed", "shipped"],
+        "reason_pool": [
+            "customer_found_cheaper", "customer_changed_mind", "wrong_item_ordered",
+            "duplicate_order", "delivery_too_slow",
+        ],
+        "events": ["order.placed", "order.cancelled_by_customer"],
+        "adversarial_pool": [
+            {
+                "question": "Order {id} was cancelled by the system due to fraud detection. What fraud indicators were found?",
+                "false_premise": "cancelled by the system due to fraud detection",
+                "reality": "The order was cancelled by the customer, not the system. Reason: {reason}",
+            },
+            {
+                "question": "After the system automatically cancelled order {id}, was the customer notified?",
+                "false_premise": "system automatically cancelled",
+                "reality": "The order was cancelled by the customer, not automatically by the system. Reason: {reason}",
+            },
+            {
+                "question": "Order {id} was cancelled because the item was out of stock. When will it be restocked?",
+                "false_premise": "cancelled because item was out of stock",
+                "reality": "The order was cancelled by the customer, not due to stock issues. Reason: {reason}",
+            },
+        ],
+    },
+    {
+        "domain": "berka",
+        "id": "berka_adversarial_overdraft",
+        "name": "False Premise: Overdraft Cause",
+        "entity": "account",
+        "field": "balance",
+        "tier5_only": True,
+        "current_pool": ["-450.00", "-120.50", "-1500.00", "-75.30"],
+        "previous_pool": ["2100.00", "500.00", "3200.00", "150.00"],
+        "reason_pool": [
+            "transfer_sent_rent", "wire_transfer_international",
+            "standing_order_rent", "auto_payment_mortgage",
+        ],
+        "events": ["account.opened", "deposit.received", "transfer.sent"],
+        "adversarial_pool": [
+            {
+                "question": "A deposit into account {id} caused it to go into overdraft. How much was the deposit?",
+                "false_premise": "a deposit caused the overdraft",
+                "reality": "A deposit cannot cause an overdraft. The overdraft was caused by a transfer/payment: {reason}. Balance went from {previous} to {current}",
+            },
+            {
+                "question": "Account {id} went into overdraft after receiving a large incoming transfer. Who sent the transfer?",
+                "false_premise": "overdraft after receiving incoming transfer",
+                "reality": "An incoming transfer cannot cause an overdraft. The overdraft was caused by an outgoing transaction: {reason}. Balance went from {previous} to {current}",
+            },
+            {
+                "question": "The interest payment on account {id} caused it to go negative. What was the interest rate?",
+                "false_premise": "interest payment caused overdraft",
+                "reality": "The overdraft was not caused by an interest payment. It was caused by: {reason}. Balance went from {previous} to {current}",
+            },
+        ],
+    },
+    {
+        "domain": "github",
+        "id": "github_adversarial_pr",
+        "name": "False Premise: PR Merged",
+        "entity": "pull_request",
+        "field": "state",
+        "tier5_only": True,
+        "current_pool": ["closed, not merged"],
+        "previous_pool": ["open", "draft", "review_requested"],
+        "reason_pool": [
+            "superseded_by_pr_456", "approach_abandoned", "duplicate_of_pr_123",
+            "requirements_changed", "stale_no_activity",
+        ],
+        "events": ["pr.opened", "pr.closed_superseded"],
+        "adversarial_pool": [
+            {
+                "question": "When was PR {id} merged into the main branch?",
+                "false_premise": "PR was merged",
+                "reality": "The PR was NOT merged. It was closed without merging. Reason: {reason}",
+            },
+            {
+                "question": "After PR {id} was merged, did the CI pipeline pass on main?",
+                "false_premise": "PR was merged",
+                "reality": "The PR was never merged. It was closed without merging. Reason: {reason}",
+            },
+            {
+                "question": "Which commit from PR {id} caused the regression after it was merged?",
+                "false_premise": "PR was merged and caused regression",
+                "reality": "The PR was not merged — it was closed without merging. Reason: {reason}. It could not have caused any regression.",
+            },
+        ],
+    },
+    {
+        "domain": "bts",
+        "id": "bts_adversarial_delay",
+        "name": "False Premise: Flight Delayed",
+        "entity": "flight",
+        "field": "cancelled",
+        "tier5_only": True,
+        "current_pool": ["yes"],
+        "previous_pool": ["no"],
+        "reason_pool": [
+            "mechanical_engine_sensor", "weather_thunderstorm", "crew_shortage",
+            "air_traffic_control", "fuel_system_alert",
+        ],
+        "events": ["flight.scheduled", "flight.cancelled_mechanical"],
+        "adversarial_pool": [
+            {
+                "question": "How many minutes was flight {id} delayed before it finally departed?",
+                "false_premise": "flight was delayed before departure",
+                "reality": "The flight was not delayed — it was cancelled entirely. It never departed. Cancellation reason: {reason}",
+            },
+            {
+                "question": "Flight {id} departed 2 hours late. What caused the delay?",
+                "false_premise": "flight departed late",
+                "reality": "The flight never departed. It was cancelled, not delayed. Cancellation reason: {reason}",
+            },
+            {
+                "question": "After the delay, did flight {id} make up time en route?",
+                "false_premise": "flight was delayed but eventually flew",
+                "reality": "The flight was cancelled and never flew. There was no delay or en-route time. Cancellation reason: {reason}",
+            },
+        ],
+    },
+    {
+        "domain": "movielens",
+        "id": "movielens_adversarial_rating",
+        "name": "False Premise: Rating Lowered",
+        "entity": "rating",
+        "field": "rating",
+        "tier5_only": True,
+        "current_pool": ["4.5", "5.0", "4.0"],
+        "previous_pool": ["2.0", "1.0", "1.5"],
+        "reason_pool": [
+            "appreciated_on_rewatch", "director_cut_superior", "nostalgia_factor",
+            "discussed_in_film_club", "saw_sequel_reappraised",
+        ],
+        "events": ["rating.created", "rating.updated_rewatch"],
+        "adversarial_pool": [
+            {
+                "question": "The user lowered their rating for movie {id}. What disappointed them?",
+                "false_premise": "user lowered their rating",
+                "reality": "The user actually INCREASED their rating from {previous} to {current}, not lowered it. Reason for increase: {reason}",
+            },
+            {
+                "question": "After the user gave movie {id} a negative review, did they remove it from their watchlist?",
+                "false_premise": "user gave a negative review",
+                "reality": "The user's rating is {current} (up from {previous}), which is a positive rating, not a negative review. Reason: {reason}",
+            },
+            {
+                "question": "Why did the user rate movie {id} only 1 star?",
+                "false_premise": "user rated 1 star",
+                "reality": "The user did not rate the movie as 1 star. Current rating is {current} (changed from {previous}). Reason for change: {reason}",
+            },
+        ],
+    },
+
     {
         "domain": "movielens",
         "id": "movielens_temporal_rating",
@@ -646,7 +813,7 @@ def generate_questions(num: int = 51, seed: int = 42, tier: int = None) -> list[
     Args:
         num:  Number of questions to generate.
         seed: Random seed for reproducibility.
-        tier: If set (1, 2, 3, or 4), only generate questions of that tier.
+        tier: If set (1, 2, 3, 4, or 5), only generate questions of that tier.
 
     Returns:
         List of question dicts matching the existing interface:
@@ -654,18 +821,57 @@ def generate_questions(num: int = 51, seed: int = 42, tier: int = None) -> list[
          expected, cdc_limitation, setup}
     """
     rng = random.Random(seed)
-    tiers = [tier] if tier else [1, 2, 3, 4]
+    tiers = [tier] if tier else [1, 2, 3, 4, 5]
 
     # Split templates by type
-    standard_templates = [t for t in TEMPLATES if not t.get("tier4_only")]
+    standard_templates = [t for t in TEMPLATES if not t.get("tier4_only") and not t.get("tier5_only")]
     temporal_templates = [t for t in TEMPLATES if t.get("tier4_only")]
+    adversarial_templates = [t for t in TEMPLATES if t.get("tier5_only")]
 
     questions = []
 
     for i in range(num):
         t = rng.choice(tiers)
 
-        if t == 4:
+        if t == 5:
+            # Tier 5: adversarial questions — pick from adversarial templates
+            if not adversarial_templates:
+                continue
+            tmpl = rng.choice(adversarial_templates)
+            adv_q = rng.choice(tmpl["adversarial_pool"])
+
+            # Sample values from pools
+            current_val = rng.choice(tmpl["current_pool"])
+            previous_val = rng.choice(tmpl["previous_pool"])
+            reason_val = rng.choice(tmpl["reason_pool"])
+
+            # The expected answer is the correction of the false premise
+            expected = adv_q["reality"].format(
+                reason=reason_val,
+                current=current_val,
+                previous=previous_val,
+            )
+
+            setup = {
+                "current": {tmpl["field"]: current_val},
+                "previous": {tmpl["field"]: previous_val},
+                "reason": reason_val,
+                "events": tmpl["events"],
+            }
+
+            questions.append({
+                "domain": tmpl["domain"],
+                "scenario_id": tmpl["id"],
+                "scenario_name": tmpl["name"],
+                "entity": tmpl["entity"],
+                "tier": 5,
+                "question": adv_q["question"],
+                "expected": expected,
+                "false_premise": adv_q["false_premise"],
+                "cdc_limitation": "CDC may show what changed but lacks context to detect false premises",
+                "setup": setup,
+            })
+        elif t == 4:
             # Tier 4: temporal questions — pick from temporal templates
             if not temporal_templates:
                 continue
@@ -768,10 +974,11 @@ def print_summary():
     print("POOL-BASED BENCHMARK QUERY TEMPLATES")
     print("=" * 70)
     print()
-    print("Tier 1 (Easy):     Current state queries")
-    print("Tier 2 (Medium):   Change history queries")
-    print("Tier 3 (Hard):     Intent/reason queries")
-    print("Tier 4 (Temporal): Cross-event time and order reasoning")
+    print("Tier 1 (Easy):        Current state queries")
+    print("Tier 2 (Medium):      Change history queries")
+    print("Tier 3 (Hard):        Intent/reason queries")
+    print("Tier 4 (Temporal):    Cross-event time and order reasoning")
+    print("Tier 5 (Adversarial): False premise detection")
     print()
 
     domains = {}

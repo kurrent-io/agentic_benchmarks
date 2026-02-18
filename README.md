@@ -2,11 +2,11 @@
 
 **Thesis: Writing Events Is All You Need**
 
-This benchmark demonstrates that storing data as events rather than current state dramatically improves an AI agent's ability to answer questions about your data. When you write events, you preserve the *intent* and *reason* behind every change—information that CRUD databases lose forever.
+This benchmark demonstrates that storing data as events rather than current state dramatically improves an AI agent's ability to answer questions about your data. When you write events, you preserve the *intent* and *reason* behind every change—information that CRUD databases usually lose forever.
 
 ## The Problem
 
-Traditional databases store current state. When data changes, the previous value is overwritten. This creates an information gap:
+When data changes, the previous value is overwritten. This creates an information gap:
 
 | Question Type | CRUD Database | Event Store |
 |---------------|---------------|-------------|
@@ -61,8 +61,11 @@ Questions are organized by difficulty:
 | **Tier 2** | Medium | Change history | "What was the previous status?" |
 | **Tier 3** | Hard | Intent/reason | "Why was the status changed?" |
 | **Tier 4** | Temporal | Cross-event ordering | "How many review rounds before approval?" |
+| **Tier 5** | Adversarial | False premise detection | "Why was the order cancelled by the system?" (it wasn't) |
 
 Temporal queries (Tier 4) are questions that depend on time and order across a long sequence of events, not just on recalling a single fact. They require the agent to read multiple events, understand their chronological order, and reason about gaps, durations, sequences, and trends.
+
+Adversarial queries (Tier 5) contain a **false premise** — a wrong assumption baked into the question. The correct answer requires the agent to detect and correct the false assumption rather than blindly answering. For example, asking "Why was the order cancelled by the system?" when in fact the customer cancelled it.
 
 ### How Temporal Questions Work
 
@@ -104,7 +107,7 @@ At setup time, events are written to each database differently:
 
 ## Pool-Based Dynamic Question Generation
 
-Questions are generated on the fly from **22 templates** across 5 domains (17 standard + 5 temporal). Each standard template defines pools of possible values:
+Questions are generated on the fly from **27 templates** across 5 domains (17 standard + 5 temporal + 5 adversarial). Each standard template defines pools of possible values:
 
 - **current_pool**: 4-8 possible current state values
 - **previous_pool**: 4-8 possible previous state values

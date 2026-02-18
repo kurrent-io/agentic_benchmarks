@@ -252,7 +252,7 @@ def run_benchmark(questions: list, delay: int = 3):
             "cost_usd": 0,
         },
         "by_database": {db: {"correct": 0, "wrong": 0, "total": 0, "tokens": 0, "time_s": 0} for db in ALL_DBS},
-        "by_tier": {1: {"correct": 0, "total": 0}, 2: {"correct": 0, "total": 0}, 3: {"correct": 0, "total": 0}, 4: {"correct": 0, "total": 0}},
+        "by_tier": {1: {"correct": 0, "total": 0}, 2: {"correct": 0, "total": 0}, 3: {"correct": 0, "total": 0}, 4: {"correct": 0, "total": 0}, 5: {"correct": 0, "total": 0}},
         "questions": [],
     }
 
@@ -382,8 +382,8 @@ def generate_html_report(results: dict, output_path: Path):
 
     # Tier summary rows
     tier_rows = ""
-    tier_names = {1: "Easy", 2: "Medium", 3: "Hard", 4: "Temporal"}
-    for tier in [1, 2, 3, 4]:
+    tier_names = {1: "Easy", 2: "Medium", 3: "Hard", 4: "Temporal", 5: "Adversarial"}
+    for tier in [1, 2, 3, 4, 5]:
         s = results["by_tier"][tier]
         accuracy = (s["correct"] / s["total"] * 100) if s["total"] > 0 else 0
         tier_rows += f'''<tr>
@@ -486,6 +486,7 @@ def generate_html_report(results: dict, output_path: Path):
         .tier2 {{ background: rgba(234, 179, 8, 0.15); color: var(--yellow); }}
         .tier3 {{ background: rgba(239, 68, 68, 0.15); color: var(--red); }}
         .tier4 {{ background: rgba(139, 92, 246, 0.15); color: var(--purple); }}
+        .tier5 {{ background: rgba(249, 115, 22, 0.15); color: #f97316; }}
 
         .filters {{ display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }}
         .filter-group {{ display: flex; align-items: center; gap: 8px; }}
@@ -563,7 +564,7 @@ def generate_html_report(results: dict, output_path: Path):
 
         <div class="section">
             <h2>Results by Tier</h2>
-            <p class="tier-explanation"><strong>Tier 1 - Easy:</strong> Current state queries. <strong>Tier 2 - Medium:</strong> Change history queries. <strong>Tier 3 - Hard:</strong> Intent queries. <strong>Tier 4 - Temporal:</strong> Cross-event time and order reasoning.</p>
+            <p class="tier-explanation"><strong>Tier 1 - Easy:</strong> Current state queries. <strong>Tier 2 - Medium:</strong> Change history queries. <strong>Tier 3 - Hard:</strong> Intent queries. <strong>Tier 4 - Temporal:</strong> Cross-event time and order reasoning. <strong>Tier 5 - Adversarial:</strong> Questions with false premises that the agent must detect and correct.</p>
             <table>
                 <thead>
                     <tr><th>Tier</th><th class="num">Score</th><th class="num">Accuracy</th></tr>
@@ -582,6 +583,7 @@ def generate_html_report(results: dict, output_path: Path):
                     <button class="filter-btn" data-tier="2">Tier 2</button>
                     <button class="filter-btn" data-tier="3">Tier 3</button>
                     <button class="filter-btn" data-tier="4">Tier 4</button>
+                    <button class="filter-btn" data-tier="5">Tier 5</button>
                 </div>
                 <div class="filter-group">
                     <span class="filter-label">Domain:</span>
@@ -657,7 +659,7 @@ def generate_html_report(results: dict, output_path: Path):
 def main():
     parser = argparse.ArgumentParser(description="Three-Database Benchmark")
     parser.add_argument("--num", type=int, default=10, help="Number of questions to run (default: 10)")
-    parser.add_argument("--tier", type=int, choices=[1, 2, 3, 4], help="Run only specific tier")
+    parser.add_argument("--tier", type=int, choices=[1, 2, 3, 4, 5], help="Run only specific tier")
     parser.add_argument("--quick", action="store_true", help="Shorter delays (1s vs 3s)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for question selection")
     args = parser.parse_args()
