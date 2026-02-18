@@ -60,6 +60,39 @@ Questions are organized by difficulty:
 | **Tier 1** | Easy | Current state | "What is the order status?" |
 | **Tier 2** | Medium | Change history | "What was the previous status?" |
 | **Tier 3** | Hard | Intent/reason | "Why was the status changed?" |
+| **Tier 4** | Temporal | Cross-event ordering | "How many review rounds before approval?" |
+
+Temporal queries (Tier 4) are questions that depend on time and order across a long sequence of events, not just on recalling a single fact. They require the agent to read multiple events, understand their chronological order, and reason about gaps, durations, sequences, and trends.
+
+### How Temporal Questions Work
+
+Each domain has a temporal template with a **fixed multi-event sequence** and a pool of question variants:
+
+```python
+# Example: GitHub PR Review Timeline
+"events": [
+    {"type": "pr.opened",                "offset_hours": 0},
+    {"type": "review.changes_requested", "offset_hours": 12},
+    {"type": "pr.updated",               "offset_hours": 36},
+    {"type": "review.changes_requested", "offset_hours": 48},
+    {"type": "pr.updated",               "offset_hours": 72},
+    {"type": "review.approved",          "offset_hours": 84},
+    {"type": "pr.merged",                "offset_hours": 85},
+]
+
+# 4 question variants per template:
+"How many rounds of review did PR {id} go through?"        # answer: 2
+"How long was PR {id} open before merge?"                  # answer: 85 hours
+"Time between last update and approval for PR {id}?"       # answer: 12 hours
+"How many times were changes requested on PR {id}?"        # answer: 2
+```
+
+Unlike Tiers 1-3 (which sample random values from pools), Tier 4 uses a fixed event sequence and varies which *question* is asked about that sequence. The expected answer is computed by running the answer function against the event list. The complexity comes from requiring the agent to read multiple events and reason about their order — not from randomizing values.
+
+At setup time, events are written to each database differently:
+- **PostgreSQL**: One row with current state only — no event history available
+- **PostgreSQL+CDC**: Multiple CDC records with `ts_ms` timestamps and `event_type` in after_state
+- **KurrentDB**: Full event stream with each event as a separate entry including timestamps
 
 ## Databases Compared
 
@@ -71,7 +104,7 @@ Questions are organized by difficulty:
 
 ## Pool-Based Dynamic Question Generation
 
-Questions are generated on the fly from **17 templates** across 5 domains. Each template defines pools of possible values:
+Questions are generated on the fly from **22 templates** across 5 domains (17 standard + 5 temporal). Each standard template defines pools of possible values:
 
 - **current_pool**: 4-8 possible current state values
 - **previous_pool**: 4-8 possible previous state values
@@ -130,15 +163,15 @@ Results are saved to `.benchmark/runs/` with:
 
 ## Results
 
-From a 300-question benchmark run (5 domains, 3 tiers, 17 templates):
+From a 250-question benchmark run (5 domains, 4 tiers, 22 templates):
 
 | Database | Score | Accuracy |
 |----------|-------|----------|
-| PostgreSQL | 103/300 | 34% |
-| PostgreSQL+CDC | 196/300 | 65% |
-| KurrentDB | 293/300 | 98% |
+| PostgreSQL | 62/250 | 25% |
+| PostgreSQL+CDC | 161/250 | 64% |
+| KurrentDB | 239/250 | 96% |
 
-**Key Finding**: Event stores excel at Tier 3 (Hard) questions because they preserve the *reason* behind each change, not just the fact that it changed. CRUD databases cannot answer "why" — that information is never stored.
+**Key Finding**: Event stores excel at Tier 3 (intent) and Tier 4 (temporal) questions because they preserve the *reason* behind each change and the full ordered sequence of events. CRUD databases cannot answer "why" or "in what order" — that information is never stored.
 
 ## How It Works
 
@@ -174,7 +207,7 @@ A judge compares agent answers against expected values and scores accuracy.
 ```
 agentic_benchmark/
 ├── run_benchmark.py      # Main benchmark runner
-├── benchmark_queries.py  # Pool-based question generator (17 templates, 5 domains)
+├── benchmark_queries.py  # Pool-based question generator (22 templates, 5 domains)
 ├── docker-compose.yml    # Database containers + MCP servers
 ├── framework/
 │   └── agents/           # Claude client, MCP retrieval, Judge

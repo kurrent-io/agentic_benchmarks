@@ -104,14 +104,58 @@ def setup_scenario_data(scenario: dict, entity_id: str):
     # KurrentDB - events with reason
     stream_name = f"{entity_type}-{entity_id}"
     events = []
-    for event_type in setup.get("events", []):
-        event_data = {
-            "entity_id": entity_id,
-            "previous": setup["previous"],
-            "current": setup["current"],
-            "reason": setup.get("reason"),
-        }
-        events.append({"eventType": event_type, "data": event_data})
+    is_temporal = setup.get("temporal", False)
+
+    if is_temporal:
+        # Temporal: events are dicts with type, offset_hours, and optional extra fields
+        from datetime import datetime, timedelta
+        base_time = datetime(2024, 1, 15, 10, 0, 0)
+        for evt in setup.get("events", []):
+            ts = base_time + timedelta(hours=evt["offset_hours"])
+            event_data = {
+                "entity_id": entity_id,
+                "timestamp": ts.isoformat(),
+                "offset_hours": evt["offset_hours"],
+            }
+            # Include any extra fields from the event definition
+            for k, v in evt.items():
+                if k not in ("type", "offset_hours"):
+                    event_data[k] = v
+            event_data["previous"] = setup["previous"]
+            event_data["current"] = setup["current"]
+            event_data["reason"] = setup.get("reason")
+            events.append({"eventType": evt["type"], "data": event_data})
+    else:
+        # Standard: events are plain strings
+        for event_type in setup.get("events", []):
+            event_data = {
+                "entity_id": entity_id,
+                "previous": setup["previous"],
+                "current": setup["current"],
+                "reason": setup.get("reason"),
+            }
+            events.append({"eventType": event_type, "data": event_data})
+
+    # Also write temporal CDC events (multiple before/after records)
+    if is_temporal:
+        try:
+            conn2 = psycopg.connect("postgresql://bench:bench@localhost:5432/benchmark", connect_timeout=10)
+            with conn2.cursor() as cur:
+                base_ms = 1705312800000  # 2024-01-15 10:00 UTC in ms
+                for evt in setup.get("events", []):
+                    ts_ms = base_ms + int(evt["offset_hours"] * 3600 * 1000)
+                    evt_data = {}
+                    for k, v in evt.items():
+                        if k not in ("type", "offset_hours"):
+                            evt_data[k] = v
+                    cur.execute("""
+                        INSERT INTO cdc.cdc_events (entity_type, entity_id, op, before_state, after_state, ts_ms, source)
+                        VALUES (%s, %s, 'u', %s, %s, %s, '{"connector": "benchmark"}')
+                    """, (entity_type, entity_id, json.dumps(setup["previous"]), json.dumps({**setup["current"], **evt_data, "event_type": evt["type"]}), ts_ms))
+                conn2.commit()
+            conn2.close()
+        except Exception as e:
+            log(f"  Warning writing temporal CDC: {e}")
 
     with httpx.Client(timeout=15.0) as client:
         for event in events:
@@ -208,7 +252,7 @@ def run_benchmark(questions: list, delay: int = 3):
             "cost_usd": 0,
         },
         "by_database": {db: {"correct": 0, "wrong": 0, "total": 0, "tokens": 0, "time_s": 0} for db in ALL_DBS},
-        "by_tier": {1: {"correct": 0, "total": 0}, 2: {"correct": 0, "total": 0}, 3: {"correct": 0, "total": 0}},
+        "by_tier": {1: {"correct": 0, "total": 0}, 2: {"correct": 0, "total": 0}, 3: {"correct": 0, "total": 0}, 4: {"correct": 0, "total": 0}},
         "questions": [],
     }
 
@@ -338,8 +382,8 @@ def generate_html_report(results: dict, output_path: Path):
 
     # Tier summary rows
     tier_rows = ""
-    tier_names = {1: "Easy", 2: "Medium", 3: "Hard"}
-    for tier in [1, 2, 3]:
+    tier_names = {1: "Easy", 2: "Medium", 3: "Hard", 4: "Temporal"}
+    for tier in [1, 2, 3, 4]:
         s = results["by_tier"][tier]
         accuracy = (s["correct"] / s["total"] * 100) if s["total"] > 0 else 0
         tier_rows += f'''<tr>
@@ -441,6 +485,7 @@ def generate_html_report(results: dict, output_path: Path):
         .tier1 {{ background: rgba(34, 197, 94, 0.15); color: var(--green); }}
         .tier2 {{ background: rgba(234, 179, 8, 0.15); color: var(--yellow); }}
         .tier3 {{ background: rgba(239, 68, 68, 0.15); color: var(--red); }}
+        .tier4 {{ background: rgba(139, 92, 246, 0.15); color: var(--purple); }}
 
         .filters {{ display: flex; gap: 24px; margin-bottom: 20px; flex-wrap: wrap; align-items: center; }}
         .filter-group {{ display: flex; align-items: center; gap: 8px; }}
@@ -518,7 +563,7 @@ def generate_html_report(results: dict, output_path: Path):
 
         <div class="section">
             <h2>Results by Tier</h2>
-            <p class="tier-explanation"><strong>Tier 1 - Easy:</strong> Current state queries. <strong>Tier 2 - Medium:</strong> Change history queries requiring before/after data. <strong>Tier 3 - Hard:</strong> Intent queries requiring event semantics.</p>
+            <p class="tier-explanation"><strong>Tier 1 - Easy:</strong> Current state queries. <strong>Tier 2 - Medium:</strong> Change history queries. <strong>Tier 3 - Hard:</strong> Intent queries. <strong>Tier 4 - Temporal:</strong> Cross-event time and order reasoning.</p>
             <table>
                 <thead>
                     <tr><th>Tier</th><th class="num">Score</th><th class="num">Accuracy</th></tr>
@@ -536,6 +581,7 @@ def generate_html_report(results: dict, output_path: Path):
                     <button class="filter-btn" data-tier="1">Tier 1</button>
                     <button class="filter-btn" data-tier="2">Tier 2</button>
                     <button class="filter-btn" data-tier="3">Tier 3</button>
+                    <button class="filter-btn" data-tier="4">Tier 4</button>
                 </div>
                 <div class="filter-group">
                     <span class="filter-label">Domain:</span>
@@ -611,7 +657,7 @@ def generate_html_report(results: dict, output_path: Path):
 def main():
     parser = argparse.ArgumentParser(description="Three-Database Benchmark")
     parser.add_argument("--num", type=int, default=10, help="Number of questions to run (default: 10)")
-    parser.add_argument("--tier", type=int, choices=[1, 2, 3], help="Run only specific tier")
+    parser.add_argument("--tier", type=int, choices=[1, 2, 3, 4], help="Run only specific tier")
     parser.add_argument("--quick", action="store_true", help="Shorter delays (1s vs 3s)")
     parser.add_argument("--seed", type=int, default=42, help="Random seed for question selection")
     args = parser.parse_args()

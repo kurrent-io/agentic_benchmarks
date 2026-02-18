@@ -383,7 +383,257 @@ TEMPLATES = [
             3: {"template": "Why was movie {id} removed from watchlist?", "answer_key": "reason", "cdc_limitation": "CDC shows deleted, not why"},
         },
     },
+    # -------------------------------------------------------------------------
+    # TIER 4 — TEMPORAL QUERIES (cross-event reasoning about time and order)
+    # These questions require reading multiple events and reasoning about
+    # their sequence, timing gaps, or causal ordering — not just a single fact.
+    # -------------------------------------------------------------------------
+    {
+        "domain": "olist",
+        "id": "olist_temporal_order",
+        "name": "Order Lifecycle Timing",
+        "entity": "order",
+        "field": "status",
+        "tier4_only": True,
+        "current_pool": ["delivered"],
+        "previous_pool": ["processing"],
+        "reason_pool": ["standard_fulfillment"],
+        "events": [
+            {"type": "order.placed", "offset_hours": 0},
+            {"type": "order.confirmed", "offset_hours": 2},
+            {"type": "order.shipped", "offset_hours": 48},
+            {"type": "delivery.delayed", "offset_hours": 96},
+            {"type": "order.delivered", "offset_hours": 168},
+        ],
+        "temporal_pool": [
+            {"question": "How long did it take from order placement to delivery for order {id}?", "answer_fn": "total_duration"},
+            {"question": "What was the longest gap between consecutive events for order {id}?", "answer_fn": "longest_gap"},
+            {"question": "How many status changes did order {id} go through before delivery?", "answer_fn": "num_events"},
+            {"question": "Did any delay occur after shipping for order {id}? How long after shipping?", "answer_fn": "delay_after_ship"},
+        ],
+    },
+    {
+        "domain": "berka",
+        "id": "berka_temporal_account",
+        "name": "Account Activity Sequence",
+        "entity": "account",
+        "field": "balance",
+        "tier4_only": True,
+        "current_pool": ["15420.50"],
+        "previous_pool": ["20000.00"],
+        "reason_pool": ["mixed_transactions"],
+        "events": [
+            {"type": "account.opened", "offset_hours": 0},
+            {"type": "deposit.received", "offset_hours": 24},
+            {"type": "transfer.sent", "offset_hours": 72},
+            {"type": "fee.charged", "offset_hours": 73},
+            {"type": "deposit.received", "offset_hours": 168},
+            {"type": "transfer.sent", "offset_hours": 240},
+        ],
+        "temporal_pool": [
+            {"question": "How many transactions occurred on account {id} in the first 3 days?", "answer_fn": "events_in_first_n_hours", "param": 72},
+            {"question": "What was the sequence of transaction types on account {id}?", "answer_fn": "event_sequence"},
+            {"question": "Was there a fee charged within 24 hours of a transfer on account {id}?", "answer_fn": "fee_after_transfer"},
+            {"question": "How many deposits vs withdrawals occurred on account {id}?", "answer_fn": "deposit_vs_withdrawal"},
+        ],
+    },
+    {
+        "domain": "github",
+        "id": "github_temporal_pr",
+        "name": "PR Review Timeline",
+        "entity": "pull_request",
+        "field": "state",
+        "tier4_only": True,
+        "current_pool": ["merged"],
+        "previous_pool": ["open"],
+        "reason_pool": ["review_process"],
+        "events": [
+            {"type": "pr.opened", "offset_hours": 0},
+            {"type": "review.changes_requested", "offset_hours": 12},
+            {"type": "pr.updated", "offset_hours": 36},
+            {"type": "review.changes_requested", "offset_hours": 48},
+            {"type": "pr.updated", "offset_hours": 72},
+            {"type": "review.approved", "offset_hours": 84},
+            {"type": "pr.merged", "offset_hours": 85},
+        ],
+        "temporal_pool": [
+            {"question": "How many rounds of review did PR {id} go through before approval?", "answer_fn": "review_rounds"},
+            {"question": "How long was PR {id} open before it was merged?", "answer_fn": "total_duration"},
+            {"question": "What was the time between the last update and approval for PR {id}?", "answer_fn": "last_update_to_approval"},
+            {"question": "How many times were changes requested on PR {id}?", "answer_fn": "changes_requested_count"},
+        ],
+    },
+    {
+        "domain": "bts",
+        "id": "bts_temporal_flight",
+        "name": "Flight Delay Accumulation",
+        "entity": "flight",
+        "field": "delay_minutes",
+        "tier4_only": True,
+        "current_pool": ["180"],
+        "previous_pool": ["0"],
+        "reason_pool": ["cascading_delays"],
+        "events": [
+            {"type": "flight.scheduled", "offset_hours": 0},
+            {"type": "flight.delayed_weather", "offset_hours": -2, "delay_added": 45},
+            {"type": "flight.delayed_crew", "offset_hours": -1, "delay_added": 60},
+            {"type": "flight.delayed_atc", "offset_hours": 0, "delay_added": 75},
+            {"type": "flight.departed", "offset_hours": 3},
+        ],
+        "temporal_pool": [
+            {"question": "How many separate delays did flight {id} accumulate before departure?", "answer_fn": "num_delays"},
+            {"question": "What was the first cause of delay for flight {id}?", "answer_fn": "first_delay_cause"},
+            {"question": "Did the delays for flight {id} get worse over time or were they resolved?", "answer_fn": "delay_trend"},
+            {"question": "How much total delay accumulated for flight {id} across all causes?", "answer_fn": "total_delay"},
+        ],
+    },
+    {
+        "domain": "movielens",
+        "id": "movielens_temporal_rating",
+        "name": "Rating Evolution",
+        "entity": "rating",
+        "field": "rating",
+        "tier4_only": True,
+        "current_pool": ["4.5"],
+        "previous_pool": ["3.0"],
+        "reason_pool": ["taste_evolution"],
+        "events": [
+            {"type": "rating.created", "offset_hours": 0, "value": "3.0"},
+            {"type": "rating.updated", "offset_hours": 720, "value": "2.0", "reason": "disappointing_on_reflection"},
+            {"type": "rating.updated", "offset_hours": 2160, "value": "4.0", "reason": "appreciated_after_sequel"},
+            {"type": "rating.updated", "offset_hours": 4320, "value": "4.5", "reason": "discussed_in_film_club"},
+        ],
+        "temporal_pool": [
+            {"question": "How many times did user change their rating for movie {id}?", "answer_fn": "num_changes"},
+            {"question": "Did the rating for movie {id} trend upward or downward over time?", "answer_fn": "rating_trend"},
+            {"question": "What was the lowest rating movie {id} ever received from this user?", "answer_fn": "min_rating"},
+            {"question": "How long between the first and last rating change for movie {id}?", "answer_fn": "time_span"},
+        ],
+    },
 ]
+
+
+# =============================================================================
+# TEMPORAL ANSWER COMPUTATION
+# =============================================================================
+
+def _compute_temporal_answer(answer_fn: str, events: list[dict], param=None) -> str:
+    """Compute the expected answer for a temporal question based on event sequence."""
+    if answer_fn == "total_duration":
+        first = events[0]["offset_hours"]
+        last = events[-1]["offset_hours"]
+        hours = last - first
+        if hours >= 24:
+            return f"{hours // 24} days ({hours} hours)"
+        return f"{hours} hours"
+
+    elif answer_fn == "longest_gap":
+        max_gap = 0
+        max_pair = ("", "")
+        for i in range(1, len(events)):
+            gap = events[i]["offset_hours"] - events[i-1]["offset_hours"]
+            if gap > max_gap:
+                max_gap = gap
+                max_pair = (events[i-1]["type"], events[i]["type"])
+        if max_gap >= 24:
+            return f"{max_gap // 24} days ({max_gap} hours) between {max_pair[0]} and {max_pair[1]}"
+        return f"{max_gap} hours between {max_pair[0]} and {max_pair[1]}"
+
+    elif answer_fn == "num_events":
+        return str(len(events))
+
+    elif answer_fn == "delay_after_ship":
+        ship_idx = next((i for i, e in enumerate(events) if "shipped" in e["type"]), None)
+        delay_idx = next((i for i, e in enumerate(events) if "delay" in e["type"] and i > (ship_idx or -1)), None)
+        if ship_idx is not None and delay_idx is not None:
+            gap = events[delay_idx]["offset_hours"] - events[ship_idx]["offset_hours"]
+            return f"Yes, {gap} hours after shipping"
+        return "No delay after shipping"
+
+    elif answer_fn == "events_in_first_n_hours":
+        count = sum(1 for e in events if e["offset_hours"] <= (param or 72))
+        return str(count)
+
+    elif answer_fn == "event_sequence":
+        return " -> ".join(e["type"] for e in events)
+
+    elif answer_fn == "fee_after_transfer":
+        for i in range(1, len(events)):
+            if "fee" in events[i]["type"]:
+                prev = events[i-1]
+                if "transfer" in prev["type"]:
+                    gap = events[i]["offset_hours"] - prev["offset_hours"]
+                    return f"Yes, fee charged {gap} hours after transfer"
+        return "No"
+
+    elif answer_fn == "deposit_vs_withdrawal":
+        deposits = sum(1 for e in events if "deposit" in e["type"])
+        withdrawals = sum(1 for e in events if "transfer" in e["type"] or "fee" in e["type"])
+        return f"{deposits} deposits, {withdrawals} withdrawals/fees"
+
+    elif answer_fn == "review_rounds":
+        return str(sum(1 for e in events if "changes_requested" in e["type"]))
+
+    elif answer_fn == "last_update_to_approval":
+        updates = [e for e in events if "updated" in e["type"]]
+        approvals = [e for e in events if "approved" in e["type"]]
+        if updates and approvals:
+            gap = approvals[-1]["offset_hours"] - updates[-1]["offset_hours"]
+            return f"{gap} hours"
+        return "unknown"
+
+    elif answer_fn == "changes_requested_count":
+        return str(sum(1 for e in events if "changes_requested" in e["type"]))
+
+    elif answer_fn == "num_delays":
+        return str(sum(1 for e in events if "delayed" in e["type"]))
+
+    elif answer_fn == "first_delay_cause":
+        for e in events:
+            if "delayed" in e["type"]:
+                cause = e["type"].split("delayed_")[-1] if "delayed_" in e["type"] else "unknown"
+                return cause
+        return "no delays"
+
+    elif answer_fn == "delay_trend":
+        delays = [e for e in events if "delayed" in e["type"]]
+        if len(delays) >= 2:
+            added = [e.get("delay_added", 0) for e in delays]
+            if added[-1] > added[0]:
+                return "Delays got worse over time"
+            elif added[-1] < added[0]:
+                return "Delays improved over time"
+        return "Single delay event"
+
+    elif answer_fn == "total_delay":
+        total = sum(e.get("delay_added", 0) for e in events if "delayed" in e["type"])
+        return f"{total} minutes"
+
+    elif answer_fn == "num_changes":
+        return str(sum(1 for e in events if "updated" in e["type"]))
+
+    elif answer_fn == "rating_trend":
+        values = [float(e["value"]) for e in events if "value" in e]
+        if len(values) >= 2:
+            if values[-1] > values[0]:
+                return f"Upward trend: {' -> '.join(str(v) for v in values)}"
+            elif values[-1] < values[0]:
+                return f"Downward trend: {' -> '.join(str(v) for v in values)}"
+        return "Flat"
+
+    elif answer_fn == "min_rating":
+        values = [float(e["value"]) for e in events if "value" in e]
+        return str(min(values)) if values else "unknown"
+
+    elif answer_fn == "time_span":
+        updates = [e for e in events if "value" in e]
+        if len(updates) >= 2:
+            hours = updates[-1]["offset_hours"] - updates[0]["offset_hours"]
+            days = hours // 24
+            return f"{days} days ({hours} hours)"
+        return "no changes"
+
+    return "unknown"
 
 
 # =============================================================================
@@ -396,7 +646,7 @@ def generate_questions(num: int = 51, seed: int = 42, tier: int = None) -> list[
     Args:
         num:  Number of questions to generate.
         seed: Random seed for reproducibility.
-        tier: If set (1, 2, or 3), only generate questions of that tier.
+        tier: If set (1, 2, 3, or 4), only generate questions of that tier.
 
     Returns:
         List of question dicts matching the existing interface:
@@ -404,58 +654,96 @@ def generate_questions(num: int = 51, seed: int = 42, tier: int = None) -> list[
          expected, cdc_limitation, setup}
     """
     rng = random.Random(seed)
-    tiers = [tier] if tier else [1, 2, 3]
+    tiers = [tier] if tier else [1, 2, 3, 4]
+
+    # Split templates by type
+    standard_templates = [t for t in TEMPLATES if not t.get("tier4_only")]
+    temporal_templates = [t for t in TEMPLATES if t.get("tier4_only")]
+
     questions = []
 
     for i in range(num):
-        # Pick random template and tier
-        tmpl = rng.choice(TEMPLATES)
         t = rng.choice(tiers)
 
-        # Sample values from pools (ensure current != previous)
-        current_val = rng.choice(tmpl["current_pool"])
-        previous_val = rng.choice(tmpl["previous_pool"])
-        # If pools overlap, resample previous until it differs (or exhaust attempts)
-        for _ in range(10):
-            if previous_val != current_val:
-                break
-            previous_val = rng.choice(tmpl["previous_pool"])
-        reason_val = rng.choice(tmpl["reason_pool"])
+        if t == 4:
+            # Tier 4: temporal questions — pick from temporal templates
+            if not temporal_templates:
+                continue
+            tmpl = rng.choice(temporal_templates)
+            temporal_q = rng.choice(tmpl["temporal_pool"])
 
-        # Determine expected answer based on tier
-        q_def = tmpl["questions"][t]
-        answer_key = q_def["answer_key"]
-        if answer_key == "current":
-            expected = current_val
-        elif answer_key == "previous":
-            expected = previous_val
-        elif answer_key == "reason":
-            expected = reason_val
-        elif answer_key == "current_bool":
-            # Special case: overdraft "yes" regardless of current value
-            expected = q_def["transform"](current_val)
+            # Compute expected answer from event sequence
+            expected = _compute_temporal_answer(
+                temporal_q["answer_fn"],
+                tmpl["events"],
+                param=temporal_q.get("param"),
+            )
+
+            # Build setup with full event sequence for temporal
+            setup = {
+                "current": {tmpl["field"]: tmpl["current_pool"][0]},
+                "previous": {tmpl["field"]: tmpl["previous_pool"][0]},
+                "reason": tmpl["reason_pool"][0],
+                "events": tmpl["events"],  # list of dicts with type + offset_hours
+                "temporal": True,
+            }
+
+            questions.append({
+                "domain": tmpl["domain"],
+                "scenario_id": tmpl["id"],
+                "scenario_name": tmpl["name"],
+                "entity": tmpl["entity"],
+                "tier": 4,
+                "question": temporal_q["question"],
+                "expected": str(expected),
+                "cdc_limitation": "CDC only tracks individual field changes, not cross-event temporal reasoning",
+                "setup": setup,
+            })
         else:
-            expected = current_val
+            # Tiers 1-3: standard questions
+            tmpl = rng.choice(standard_templates)
 
-        # Build setup dict (used by run_benchmark to populate databases)
-        setup = {
-            "current": {tmpl["field"]: current_val},
-            "previous": {tmpl["field"]: previous_val},
-            "reason": reason_val,
-            "events": tmpl["events"],
-        }
+            # Sample values from pools (ensure current != previous)
+            current_val = rng.choice(tmpl["current_pool"])
+            previous_val = rng.choice(tmpl["previous_pool"])
+            for _ in range(10):
+                if previous_val != current_val:
+                    break
+                previous_val = rng.choice(tmpl["previous_pool"])
+            reason_val = rng.choice(tmpl["reason_pool"])
 
-        questions.append({
-            "domain": tmpl["domain"],
-            "scenario_id": tmpl["id"],
-            "scenario_name": tmpl["name"],
-            "entity": tmpl["entity"],
-            "tier": t,
-            "question": q_def["template"],
-            "expected": str(expected),
-            "cdc_limitation": q_def.get("cdc_limitation"),
-            "setup": setup,
-        })
+            # Determine expected answer based on tier
+            q_def = tmpl["questions"][t]
+            answer_key = q_def["answer_key"]
+            if answer_key == "current":
+                expected = current_val
+            elif answer_key == "previous":
+                expected = previous_val
+            elif answer_key == "reason":
+                expected = reason_val
+            elif answer_key == "current_bool":
+                expected = q_def["transform"](current_val)
+            else:
+                expected = current_val
+
+            setup = {
+                "current": {tmpl["field"]: current_val},
+                "previous": {tmpl["field"]: previous_val},
+                "reason": reason_val,
+                "events": tmpl["events"],
+            }
+
+            questions.append({
+                "domain": tmpl["domain"],
+                "scenario_id": tmpl["id"],
+                "scenario_name": tmpl["name"],
+                "entity": tmpl["entity"],
+                "tier": t,
+                "question": q_def["template"],
+                "expected": str(expected),
+                "cdc_limitation": q_def.get("cdc_limitation"),
+                "setup": setup,
+            })
 
     return questions
 
@@ -480,9 +768,10 @@ def print_summary():
     print("POOL-BASED BENCHMARK QUERY TEMPLATES")
     print("=" * 70)
     print()
-    print("Tier 1 (Easy):   Current state queries")
-    print("Tier 2 (Medium): Change history queries")
-    print("Tier 3 (Hard):   Intent/reason queries")
+    print("Tier 1 (Easy):     Current state queries")
+    print("Tier 2 (Medium):   Change history queries")
+    print("Tier 3 (Hard):     Intent/reason queries")
+    print("Tier 4 (Temporal): Cross-event time and order reasoning")
     print()
 
     domains = {}
