@@ -51,7 +51,7 @@ The result is the same regardless of direction:
 
 This symmetry confirms that events are the maximal representation. Every CRUD table is a lossy projection of an event stream. The projection is one-way: you can always go from events to state, but you cannot go from state back to events.
 
-## Three-Tier Benchmark
+## Five-Tier Benchmark
 
 Questions are organized by difficulty:
 
