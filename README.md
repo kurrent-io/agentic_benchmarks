@@ -166,15 +166,15 @@ Results are saved to `.benchmark/runs/` with:
 
 ## Results
 
-From a 250-question benchmark run (5 domains, 4 tiers, 22 templates):
+From a 300-question benchmark run (5 domains, 5 tiers, 27 templates):
 
 | Database | Score | Accuracy |
 |----------|-------|----------|
-| PostgreSQL | 62/250 | 25% |
-| PostgreSQL+CDC | 161/250 | 64% |
-| KurrentDB | 239/250 | 96% |
+| PostgreSQL | 84/300 | 28% |
+| PostgreSQL+CDC | 177/300 | 59% |
+| KurrentDB | 255/300 | 85% |
 
-**Key Finding**: Event stores excel at Tier 3 (intent) and Tier 4 (temporal) questions because they preserve the *reason* behind each change and the full ordered sequence of events. CRUD databases cannot answer "why" or "in what order" — that information is never stored.
+**Key Finding**: Event stores excel at Tier 3 (intent), Tier 4 (temporal), and Tier 5 (adversarial) questions because they preserve the *reason* behind each change and the full ordered sequence of events. CRUD databases cannot answer "why", "in what order", or detect false premises — that information is never stored. Adversarial questions with false premises are particularly revealing: only an event store provides enough context for the agent to detect and correct wrong assumptions.
 
 ## How It Works
 
