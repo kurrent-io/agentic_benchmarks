@@ -37,6 +37,7 @@ env/
 .benchmark/
 *.json
 *.html
+!docs/*.html
 
 # OS
 .DS_Store
