@@ -1,6 +1,6 @@
 # Agentic Retrieval Benchmark
 
-**Thesis: Writing Events Is All You Need**
+**Writing Events Is All You Need**
 
 This benchmark demonstrates that storing data as events rather than current state dramatically improves an AI agent's ability to answer questions about your data. When you write events, you preserve the *intent* and *reason* behind every change—information that CRUD databases usually lose forever.
 
@@ -8,7 +8,7 @@ This benchmark demonstrates that storing data as events rather than current stat
 
 When data changes, the previous value is overwritten. This creates an information gap:
 
-| Question Type | CRUD Database | Event Store |
+| Question Type | Current State + CDC | Event Store |
 |---------------|---------------|-------------|
 | "What is the current status?" | Can answer | Can answer |
 | "What was the previous status?" | Cannot answer | Can answer |
@@ -40,6 +40,8 @@ This approach lets us:
 ### Synthetic Conversion: Both Directions
 
 A natural objection is: "Of course events win — you designed the data with events in mind." But the benchmark converts in both directions.
+
+Note: When we refer to CRUD we refer to the usual way of overwriting the state to only keep the current state.
 
 Some domains are **naturally CRUD-shaped**. Olist stores orders as rows with a status field. Berka stores account balances as current values. These systems were never designed to emit events. We synthetically *enriched* them — imagining what the event stream would have looked like if intent had been captured from the start. An order with `status = 'cancelled'` becomes `OrderCancelledByCustomer(reason="found_cheaper")`.
 
@@ -217,13 +219,11 @@ agentic_benchmark/
 └── datasets/             # Download scripts
 ```
 
-## Key Insight
-
-**CDC tracks WHAT changed. Events track WHY.**
+## Conclusion
 
 When an order status changes from "processing" to "cancelled":
-- CRUD knows: `status = 'cancelled'`
-- CDC knows: `status: 'processing' → 'cancelled'`
-- Events know: `OrderCancelledByCustomer(reason="found_cheaper")`
+- Current State Only knows: `status = 'cancelled'`
+- Change Data Capture knows: `status: 'processing' → 'cancelled'`
+- Event Sourcing knows: `OrderCancelledByCustomer(reason="found_cheaper")`
 
 For agentic retrieval, understanding *why* is often more valuable than knowing *what*.
