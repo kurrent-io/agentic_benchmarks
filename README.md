@@ -2,7 +2,7 @@
 
 **Writing Events Is All You Need**
 
-This benchmark demonstrates that storing data as events rather than current state dramatically improves an AI agent's ability to answer questions about your data. When you write events, you preserve the *intent* and *reason* behind every change—information that CRUD databases usually lose forever.
+This benchmark demonstrates that storing data as events rather than current state dramatically improves an AI agent's ability to answer questions about your data. When you write events, you preserve the *intent* and *reason* behind every change, information that the usual current state only or CDC CRUD databases usually lose forever. You can read the complete motivation at: https://www.kurrent.io/blog/writing-events-is-all-you-need/
 
 ## The Problem
 
