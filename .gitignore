@@ -49,6 +49,7 @@ NUL
 
 # Logs
 *.log
+.env
 benchmark.key
 
 # Local scripts
