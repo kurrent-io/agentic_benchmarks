@@ -12,7 +12,7 @@ services:
       POSTGRES_PASSWORD: bench
       POSTGRES_DB: benchmark
     volumes:
-      - D:/docker-data/agentic-benchmark/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U bench -d benchmark"]
       interval: 5s
@@ -35,7 +35,7 @@ services:
       KURRENTDB_MEM_DB: "false"
       KURRENTDB_CHUNK_SIZE: 1048576
     volumes:
-      - D:/docker-data/agentic-benchmark/kurrentdb:/var/lib/kurrentdb
+      - kurrentdb_data:/var/lib/kurrentdb
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:2113/health/live"]
       interval: 5s
@@ -88,4 +88,6 @@ services:
     mem_limit: 256m
     memswap_limit: 256m
 
-# Data stored on D:/docker-data/agentic-benchmark/
+volumes:
+  postgres_data:
+  kurrentdb_data:
