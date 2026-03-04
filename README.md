@@ -166,6 +166,61 @@ Results are saved to `.benchmark/runs/` with:
 - JSON data file
 - HTML report with filtering by tier and domain
 
+### Clearing Data Between Runs
+
+The benchmark does **not** automatically clear data between runs — it accumulates in the databases. Each question generates a unique entity ID, so multiple runs won't interfere with each other. However, if you want a completely clean slate:
+
+```bash
+# Stop containers and remove volumes
+docker compose down -v
+
+# Restart with fresh databases
+docker compose up -d
+```
+
+The `-v` flag removes the named volumes (`postgres_data`, `kurrentdb_data`), giving you completely fresh databases.
+
+### Viewing the Dataset
+
+After running the benchmark, you can inspect the data that was inserted into each database:
+
+**PostgreSQL - Current State Tables**
+```bash
+# Connect to PostgreSQL via Docker
+docker compose exec postgres psql -U bench -d benchmark
+
+# View all schemas and tables
+\dn
+\dt olist.*
+\dt berka.*
+
+# Query current state (example: Olist orders)
+SELECT * FROM olist.orders;
+
+# Query CDC events (change history)
+SELECT entity_type, entity_id, op, before_state, after_state, ts_ms 
+FROM cdc.cdc_events 
+ORDER BY ts_ms DESC 
+LIMIT 10;
+```
+
+**KurrentDB - Event Streams**
+```bash
+# List all streams (via HTTP API)
+curl http://localhost:2113/streams
+
+# Read a specific stream (example: order-bench-abc123)
+curl http://localhost:2113/streams/order-bench-abc123
+
+# Or use browser
+# Open: http://localhost:2113/web/index.html#/streams
+```
+
+Each test question creates:
+- **PostgreSQL**: 1 row in `{domain}.{entity_type}s` with current state in JSONB `data` column
+- **PostgreSQL CDC**: 1+ rows in `cdc.cdc_events` with `before_state` and `after_state`
+- **KurrentDB**: 1+ events in stream `{entity_type}-{entity_id}` with full event data including `reason` field
+
 ## Results
 
 From a 300-question benchmark run (5 domains, 5 tiers, 27 templates):
