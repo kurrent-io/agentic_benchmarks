@@ -134,6 +134,34 @@ This means `--num 500` generates 500 unique questions without changing any templ
 
 ## Running the Benchmark
 
+### Configure API Key
+
+The benchmark requires an **Anthropic API key** to run. Provide it in one of these ways (checked in this order):
+
+**Option 1: Environment Variable (Recommended for CI/automation)**
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+python run_benchmark.py
+```
+
+**Option 2: `.env` File (Recommended for local development)**
+```bash
+# Copy the template
+cp .env.example .env
+
+# Edit .env and add your API key
+ANTHROPIC_API_KEY=sk-ant-...
+
+# Run benchmark (key is loaded automatically)
+python run_benchmark.py
+```
+
+**Option 3: `benchmark.key` File**
+```bash
+echo "sk-ant-..." > benchmark.key
+python run_benchmark.py
+```
+
 ### Prerequisites
 
 ```bash

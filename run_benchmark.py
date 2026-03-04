@@ -13,6 +13,7 @@ Usage:
 """
 import argparse
 import json
+import os
 import sys
 import time
 import uuid
@@ -48,6 +49,62 @@ def log(msg: str):
     msg_str = str(msg).encode('ascii', 'replace').decode('ascii')
     sys.stdout.write(msg_str + "\n")
     sys.stdout.flush()
+
+
+def load_api_key() -> str:
+    """Load Anthropic API key from environment hierarchy.
+    
+    Checks in this order:
+    1. ANTHROPIC_API_KEY environment variable (official standard)
+    2. .env file in current directory
+    3. benchmark.key file (legacy support)
+    """
+    # Check environment variable first
+    api_key = os.environ.get("ANTHROPIC_API_KEY")
+    if api_key:
+        return api_key.strip()
+    
+    # Check .env file
+    env_path = Path(".env")
+    if env_path.exists():
+        try:
+            with open(env_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#"):
+                        if line.startswith("ANTHROPIC_API_KEY="):
+                            api_key = line.split("=", 1)[1].strip().strip('"').strip("'")
+                            if api_key:
+                                return api_key
+        except Exception:
+            pass
+    
+    # Check legacy benchmark.key file
+    key_path = Path("benchmark.key")
+    if key_path.exists():
+        try:
+            with open(key_path) as f:
+                api_key = f.read().strip()
+                if api_key:
+                    return api_key
+        except Exception:
+            pass
+    
+    # Error if not found
+    raise FileNotFoundError(
+        "\n".join([
+            "",
+            "ERROR: Anthropic API key not found!",
+            "",
+            "Please provide your API key in one of these ways:",
+            "  1. Set environment variable: ANTHROPIC_API_KEY=sk-...",
+            "  2. Create .env file: echo 'ANTHROPIC_API_KEY=sk-...' > .env",
+            "  3. Create benchmark.key file: echo 'sk-...' > benchmark.key",
+            "",
+            "Get your API key from: https://console.anthropic.com/",
+            "",
+        ])
+    )
 
 
 # =============================================================================
@@ -231,8 +288,7 @@ def run_benchmark(questions: list, delay: int = 3):
     from framework.agents.judge import JudgeAgent
     from framework.agents.mcp_retrieval import MCPRetrievalAgent
 
-    with open("benchmark.key") as f:
-        api_key = f.read().strip()
+    api_key = load_api_key()
 
     config = ClaudeConfig(api_key=api_key, model="claude-3-5-haiku-20241022", max_tokens=1024)
     client = ClaudeClient(config)
